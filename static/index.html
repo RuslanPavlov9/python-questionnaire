@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Мини-анкета</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: #fff;
+            border-radius: 16px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            padding: 40px;
+            max-width: 600px;
+            width: 100%;
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 8px;
+            font-size: 28px;
+        }
+
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 15px;
+        }
+
+        .question-block {
+            margin-bottom: 24px;
+        }
+
+        .question-block label {
+            display: block;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 8px;
+            font-size: 15px;
+        }
+
+        .question-block label .required-mark {
+            color: #e74c3c;
+            margin-left: 4px;
+        }
+
+        .question-block input {
+            width: 100%;
+            padding: 12px 16px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 15px;
+            transition: border-color 0.2s;
+        }
+
+        .question-block input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .btn-submit {
+            width: 100%;
+            padding: 14px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.1s, opacity 0.2s;
+        }
+
+        .btn-submit:hover {
+            opacity: 0.9;
+        }
+
+        .btn-submit:active {
+            transform: scale(0.98);
+        }
+
+        .btn-submit:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .error {
+            color: #e74c3c;
+            font-size: 13px;
+            margin-top: 4px;
+        }
+
+        .success-message {
+            text-align: center;
+            padding: 40px 20px;
+        }
+
+        .success-message .checkmark {
+            font-size: 64px;
+            color: #2ecc71;
+            margin-bottom: 16px;
+        }
+
+        .success-message h2 {
+            color: #333;
+            margin-bottom: 8px;
+        }
+
+        .success-message p {
+            color: #666;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+        }
+
+        .alert-error {
+            background: #fee;
+            color: #c33;
+            padding: 12px 16px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container" id="app">
+        <div class="loading">Загрузка вопросов...</div>
+    </div>
+
+    <script>
+        const API_BASE = "";
+        let questions = [];
+
+        async function init() {
+            try {
+                const response = await fetch(`${API_BASE}/questions`);
+                if (!response.ok) throw new Error("Не удалось загрузить вопросы");
+                const data = await response.json();
+                questions = data.questions;
+                renderForm();
+            } catch (err) {
+                document.getElementById("app").innerHTML =
+                    `<div class="alert-error">Ошибка: ${err.message}</div>`;
+            }
+        }
+
+        function renderForm() {
+            const app = document.getElementById("app");
+
+            const questionsHtml = questions.map(q => `
+                <div class="question-block">
+                    <label for="q${q.id}">
+                        ${q.text}
+                        ${q.required ? '<span class="required-mark">*</span>' : ''}
+                    </label>
+                    <input
+                        type="${q.type}"
+                        id="q${q.id}"
+                        data-question-id="${q.id}"
+                        data-required="${q.required}"
+                        placeholder="Введите ответ"
+                    />
+                    <div class="error" id="error-q${q.id}"></div>
+                </div>
+            `).join("");
+
+            app.innerHTML = `
+                <h1>Мини-анкета</h1>
+                <p class="subtitle">Пожалуйста, заполните все обязательные поля</p>
+                <form id="survey-form">
+                    ${questionsHtml}
+                    <button type="submit" class="btn-submit" id="submit-btn">Отправить</button>
+                </form>
+            `;
+
+            document.getElementById("survey-form").addEventListener("submit", handleSubmit);
+        }
+
+        async function handleSubmit(e) {
+            e.preventDefault();
+
+            // Очистка ошибок
+            questions.forEach(q => {
+                const errEl = document.getElementById(`error-q${q.id}`);
+                if (errEl) errEl.textContent = "";
+            });
+
+            // Сбор и валидация ответов
+            const answers = [];
+            let hasError = false;
+
+            for (const q of questions) {
+                const input = document.getElementById(`q${q.id}`);
+                const value = input.value.trim();
+
+                if (q.required && !value) {
+                    const errEl = document.getElementById(`error-q${q.id}`);
+                    errEl.textContent = "Это поле обязательно для заполнения";
+                    hasError = true;
+                } else {
+                    answers.push({ question_id: q.id, value: value });
+                }
+            }
+
+            if (hasError) return;
+
+            // Отправка
+            const btn = document.getElementById("submit-btn");
+            btn.disabled = true;
+            btn.textContent = "Отправка...";
+
+            try {
+                const response = await fetch(`${API_BASE}/answers`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ answers }),
+                });
+
+                if (!response.ok) throw new Error("Ошибка при отправке");
+
+                showSuccess();
+            } catch (err) {
+                btn.disabled = false;
+                btn.textContent = "Отправить";
+                alert("Ошибка при отправке: " + err.message);
+            }
+        }
+
+        function showSuccess() {
+            document.getElementById("app").innerHTML = `
+                <div class="success-message">
+                    <div class="checkmark">&#10004;</div>
+                    <h2>Спасибо!</h2>
+                    <p>Ваши ответы успешно отправлены.</p>
+                </div>
+            `;
+        }
+
+        init();
+    </script>
+</body>
+</html>
